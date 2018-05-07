@@ -12,3 +12,5 @@
 3. Marked file.txt as write-only, and vim is target task. Then vim can not open file.txt since its mask has MAY_READ.
 ![image](https://github.com/ittlepearl/mp4/blob/master/images/target-write-only.png)
 3. Marked file.txt as read-write
+![image](https://github.com/ittlepearl/mp4/blob/master/images/read-write.png)
+It should be able to open file.txt. But since vim is target so it can not open library(which should be labeled as No_Access). Therefore, permission denied.
