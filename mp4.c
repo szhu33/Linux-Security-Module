@@ -8,6 +8,7 @@
 #include <linux/dcache.h>
 #include <linux/binfmts.h>
 #include <linux/fs.h>
+#include <linux/printk.h>
 
 #include "mp4_given.h"
 
@@ -25,46 +26,49 @@
  */
 static int get_inode_sid(struct inode *inode)
 {
-
-
-	if(!inode) {
-		pr_err("get_inode_sid: inode is null! ");
-		goto NO_ACCESS;
-	}
-
-
 	int sid;
 
-	char *cred_ctx = (char*)kzalloc(CTX_BUF_SIZE, GFP_KERNEL);
-	if(!cred_ctx) {
-		pr_err("get_inode_sid: fail to allocate cred_ctx");
+	if(!inode) {
+		pr_err("get_inode_sid: inode is null! \n");
 		goto NO_ACCESS;
 	}
 
 	struct dentry *den = d_find_alias(inode);
 	if (!den) {
+		pr_err("get_inode_sid: fail to get dentry\n");
+		goto NO_ACCESS;
+	}
+
+	char *cred_ctx = kmalloc(CTX_BUF_SIZE, GFP_KERNEL);
+	if(!cred_ctx) {
+		dput(den);
+		pr_err("get_inode_sid: fail to allocate cred_ctx\n");
 		goto NO_ACCESS;
 	}
 
 	// get xattr of this inode
-	if (!inode->i_op->getxattr) { // error handling
+	if (!inode->i_op->getxattr) { // error handling for file system like proc
 		dput(den);
+		kfree(cred_ctx);
 		goto NO_ACCESS;
 	}
 
 	int ret_sz = inode->i_op->getxattr(den, XATTR_NAME_MP4, cred_ctx, CTX_BUF_SIZE);
 	if (ret_sz <= 0) {
+		// if (printk_ratelimit()) {
+		// 	pr_err("get_inode_sid: fail to getxattr, ret_sz %d !\n",ret_sz);
+		// }
 		dput(den);
+		kfree(cred_ctx);
 		goto NO_ACCESS;
 	}
 	cred_ctx[ret_sz] = '\0';
 
 	// translate cred context into sid
 	sid = __cred_ctx_to_sid(cred_ctx);
-	pr_info("get_inode_sid: sid %d\n", sid);
 
 	// clean up
-	kzfree(cred_ctx);
+	kfree(cred_ctx);
 	dput(den);
 
 	return sid;
@@ -213,7 +217,7 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
 	if (blob->mp4_flags != MP4_TARGET_SID) {
 		return -EOPNOTSUPP;
 	}
-	pr_info("mp4_inode_init_security: target %d", blob->mp4_flags);
+	// pr_info("mp4_inode_init_security: target %d", blob->mp4_flags);
 
 
 	// 2. set xattr of for this inode
@@ -232,7 +236,6 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
 	}
 	n[ret_n] = '\0';
 	*name = n;
-	pr_info("mp4_inode_init_security: name:%s\n", *name);
 
 	// set value and len
 	int ret_v;
@@ -256,7 +259,6 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
 	v[ret_v] = '\0';
 	*value = v;
 	*len = ret_v + 1; // plus 1 here to include '\0'
-	pr_info("mp4_inode_init_security: value %s, len %d\n", *value, *len);
 
 
 RETURN:
@@ -276,11 +278,10 @@ RETURN:
 static int mp4_has_permission(int ssid, int osid, int mask)
 {
 	/*
-	 * Add your code here
+	 * read-only for non-target task accesing object with security label that is not NO_ACCESS
 	 * ...
 	 */
-	return 0;
-/*
+
 	switch (osid) {
 		case MP4_NO_ACCESS:
 			if (ssid == MP4_TARGET_SID) goto DENY;
@@ -288,58 +289,60 @@ static int mp4_has_permission(int ssid, int osid, int mask)
 
 		case MP4_READ_OBJ:
 		// check all ops except read
+		// true for both target and non-target
 			if (mask&MAY_EXEC || mask&MAY_WRITE || mask&MAY_APPEND)
-				goto DENY;
+					goto DENY;
 			else
-				goto GRANT;
+					goto GRANT;
 
 		case MP4_READ_WRITE:
-			if(ssid == MP4_TARGET_SID) {
+			if(ssid == MP4_TARGET_SID) { // // target can read, write and append
 				if (mask&MAY_EXEC)
-					goto DENY;
+						goto DENY;
 				else
-					goto GRANT;
+						goto GRANT;
 			}
-			else {
+			else { // non-target can only read
 				if (mask&MAY_EXEC || mask&MAY_WRITE || mask&MAY_APPEND)
-					goto DENY;
+						goto DENY;
 				else
-					goto GRANT;
+						goto GRANT;
 			}
 
 		case MP4_WRITE_OBJ:
-			if(ssid == MP4_TARGET_SID) {
+			if(ssid == MP4_TARGET_SID) { // target can write and append
 				if (mask&MAY_READ || mask&MAY_EXEC)
 					goto DENY;
 				else
 					goto GRANT;
 			}
-			else {
+			else { // non-target can only read
 				if (mask&MAY_EXEC || mask&MAY_WRITE || mask&MAY_APPEND)
 					goto DENY;
 				else
 					goto GRANT;
 			}
 
-		case MP4_EXEC_OBJ:
+		case MP4_EXEC_OBJ: // read and execute by ALL (both targets and non-targets)
 			if (mask & WRITE || mask & MAY_APPEND) goto DENY;
 			else goto GRANT;
 
 		case MP4_READ_DIR:
-			if (mask & MAY_WRITE) goto DENY;
-			else goto GRANT;
+			if (mask & MAY_WRITE) goto DENY; // targets can not write
+			else goto GRANT; // full access by non-targets
 
-		case MP4_RW_DIR:
-			if ((ssid != MP4_TARGET_SID) && (mask & MAY_WRITE)) goto DENY;
-			else goto GRANT;
+		case MP4_RW_DIR: // full access by all
+			goto GRANT;
 
 	}
 
 GRANT:
 	return 0;
 DENY:
+	// pr_info("Deny! ssid %d, osid %d, mask %d", ssid, osid, mask);
 	return -EACCES;
-*/
+	// return 0;
+
 }
 
 /**
@@ -362,38 +365,44 @@ static int mp4_inode_permission(struct inode *inode, int mask)
  	int permission;
 
 	// 0. obtain path of the inode and skip if needed
-	// struct dentry *den = d_find_alias(inode);
-	// if (!den) {
-	// 	goto GACCESS;
-	// }
-	// char path_buf[PATH_BUF_SIZE];
-	// dentry_path_raw(den, path_buf, PATH_BUF_SIZE);
-	// int skip = mp4_should_skip_path(path_buf);
-	// if (skip) {
-	// 	dput(den);
-	// 	goto GACCESS;
-	// }
-	//
+	struct dentry *den = d_find_alias(inode);
+	if (!den) {
+		goto GACCESS;
+	}
+	char path_buf[PATH_BUF_SIZE];
+	dentry_path_raw(den, path_buf, PATH_BUF_SIZE);
+	int skip = mp4_should_skip_path(path_buf);
+	if (skip) {
+		dput(den);
+		goto GACCESS;
+	}
+
 	// 1. get ssid
-	// struct cred *cred = current_cred(); //cred of current task
-	// if (!cred) {
-	// 	dput(den);
-	// 	goto GACCESS;
-	// }
-	// ssid = cred->security->mp4_flags;
-	//
-	// // 3. get osid
-	// osid = get_inode_sid(inode);
-	//
-	// pr_info("ssid: %d, osid:%d", ssid, osid);
-	// // 4. check for permission
-	// permission = mp4_has_permission(ssid, osid, mask);
-	// if (permission != 0) {
-			// pr_info("mp4_inode_permission: DENY! ssid%d, osid%d, mask%d", ssid, osid, mask);
-		// }
-	//
-	// dput(den)
-	// return permission;
+	struct cred *cred = current_cred(); //cred of current task
+	if (!cred) { // checking if security is null.(non-target task could have null as secuity)
+		dput(den);
+		goto GACCESS;
+	}
+	if (!cred->security) {
+		ssid = MP4_NO_ACCESS;
+	}
+	else {
+		struct mp4_security *blob = cred->security;
+		ssid = blob->mp4_flags;
+	}
+
+	// 3. get osid
+	osid = get_inode_sid(inode);
+	// pr_info("ssid:%d, osid:%d", ssid, osid);
+
+	// 4. check for permission
+	permission = mp4_has_permission(ssid, osid, mask);
+	if (permission != 0) {
+			pr_info("DENY! ssid%d, osid%d, mask%d", ssid, osid, mask);
+	}
+
+	dput(den);
+	return permission;
 GACCESS:
 	return 0;
 }
