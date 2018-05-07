@@ -44,7 +44,7 @@ struct mp4_security {
 /**
  * __cred_ctx_to_id - Get the label id from an attribute context
  *
- * @cred_ctx: buffer containing the attribute name
+ * @cred_ctx: buffer containing the attribute name in file system
  *
  * return the sid of the attribute's label, NO_ACCESS if not found
  *
@@ -63,6 +63,8 @@ static inline int __cred_ctx_to_sid(const char *cred_ctx)
 		return MP4_EXEC_OBJ;
 	else if (strcmp(cred_ctx, "target") == 0)
 		return MP4_TARGET_SID;
+	else if (strcmp(cred_ctx, "write-only") == 0)
+		return MP4_WRITE_OBJ;
 	else if (strcmp(cred_ctx, "dir") == 0)
 		return MP4_READ_DIR;
 	else if (strcmp(cred_ctx, "dir-write") == 0)
@@ -89,8 +91,8 @@ static inline int mp4_should_skip_path(const char *dir)
 	    !strncmp(dir, "/run", 4) ||
 	    !strncmp(dir, "/lvm", 4) ||
 	    !strncmp(dir, "/conf", 5) ||
-	    !strncmp(pname, "/usr", 4) ||
-	    !strncmp(pname, "/bin", 4) ||
+	    !strncmp(dir, "/usr", 4) ||
+	    !strncmp(dir, "/bin", 4) ||
 	    !strcmp(dir, "/"))
 		return 1;
 
