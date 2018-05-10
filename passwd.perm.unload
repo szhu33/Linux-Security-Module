@@ -14,3 +14,22 @@ sudo setfattr -x security.mp4 /etc/pam.d/sudo
 sudo setfattr -x security.mp4 /etc/security/pam_env.conf
 sudo setfattr -x security.mp4 /etc/sudoers.d/README
 
+sudo setfattr -x security.mp4 /etc/default/nss
+sudo setfattr -x security.mp4 /etc/group
+sudo setfattr -x security.mp4 /etc/host.conf
+sudo setfattr -x security.mp4 /etc/hosts
+sudo setfattr -x security.mp4 /etc/ld.so.cache
+sudo setfattr -x security.mp4 /etc/localtime
+sudo setfattr -x security.mp4 /etc/nsswitch.conf
+sudo setfattr -x security.mp4 /etc/passwd
+sudo setfattr -x security.mp4 /etc/resolv.conf
+sudo setfattr -x security.mp4 /etc/sudoers.d
+sudo setfattr -x security.mp4 /var/lib/sss/mc/group
+sudo setfattr -x security.mp4 /var/lib/sss/mc/initgroups
+sudo setfattr -x security.mp4 /var/lib/sss/mc/passwd
+sudo setfattr -x security.mp4 /var/run/utmp
+
+
+sudo setfattr -x security.mp4 /etc/pam.d
+sudo setfattr -x security.mp4 /etc/sudoers
+sudo setfattr -x security.mp4 /etc/sudoers.d/README

@@ -14,7 +14,7 @@
 
 #define NAME_SIZE 3
 #define CTX_BUF_SIZE 48
-#define PATH_BUF_SIZE 128
+#define PATH_BUF_SIZE 256
 
 /**
  * get_inode_sid - Get the inode mp4 security label id
@@ -369,11 +369,13 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 	if (!den) {
 		goto GACCESS;
 	}
-	char path_buf[PATH_BUF_SIZE];
-	dentry_path_raw(den, path_buf, PATH_BUF_SIZE);
-	int skip = mp4_should_skip_path(path_buf);
+	char *path_buf, *path;
+	path_buf = kmalloc(PATH_BUF_SIZE, GFP_KERNEL);
+	path = dentry_path_raw(den, path_buf, PATH_BUF_SIZE);
+	int skip = mp4_should_skip_path(path);
 	if (skip) {
 		dput(den);
+		kfree(path_buf);
 		goto GACCESS;
 	}
 
@@ -381,6 +383,7 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 	struct cred *cred = current_cred(); //cred of current task
 	if (!cred) { // checking if security is null.(non-target task could have null as secuity)
 		dput(den);
+		kfree(path_buf);
 		goto GACCESS;
 	}
 	if (!cred->security) {
@@ -400,7 +403,7 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 	if (permission != 0) {
 			pr_info("DENY! ssid%d, osid%d, mask%d", ssid, osid, mask);
 	}
-
+	kfree(path_buf);
 	dput(den);
 	return permission;
 GACCESS:
