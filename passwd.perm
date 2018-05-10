@@ -1,0 +1,16 @@
+sudo setfattr -n security.mp4 -v target /usr/bin/passwd
+sudo setfattr -n security.mp4 -v dir /home/qishanz2
+sudo setfattr -n security.mp4 -v read-only /etc/default/locale
+sudo setfattr -n security.mp4 -v read-only /etc/environment
+sudo setfattr -n security.mp4 -v read-only /etc/krb5.conf
+sudo setfattr -n security.mp4 -v read-only /etc/login.defs
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/common-account
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/common-auth
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/common-password
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/common-session
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/common-session-noninteractive
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/other
+sudo setfattr -n security.mp4 -v read-only /etc/pam.d/sudo
+sudo setfattr -n security.mp4 -v read-only /etc/security/pam_env.conf
+sudo setfattr -n security.mp4 -v read-only /etc/sudoers.d/README
+
